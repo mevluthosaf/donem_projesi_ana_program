@@ -68,7 +68,7 @@ def get_centroid(mask):
 #!!!!!!!! cap = cv2.VideoCapture(0)
 
 # İP WEBCAM
-ip_kamera_url = "http://192.168.1.55:8080/video"
+ip_kamera_url = "http://10.10.5.20:8080/video"
 cap = cv2.VideoCapture(ip_kamera_url)
 
 while cap.isOpened():
