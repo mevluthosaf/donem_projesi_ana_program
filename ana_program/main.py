@@ -23,11 +23,12 @@ except Exception as e:
 
 # Arduino bağlantısı
 try:
+    print("Arduino'ya bağlanmaya çalışılıyor...")
     arduino = serial.Serial(port='/dev/ttyUSB0', baudrate=9600, timeout=0.1)
-    time.sleep(2)
-    arduino = None
+    time.sleep(2)  # Arduino'nun resetlenmesi için gerekli süre
+    print("HARİKA! Arduino bağlantısı başarıyla kuruldu!")
 except Exception as e:
-    print(f"Arduino bağlantı hatası: {e}")
+    print(f"KRİTİK HATA! Arduino bağlantı hatası: {e}")
     arduino = None
 
 TOLERANCE = 50
