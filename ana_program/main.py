@@ -23,7 +23,7 @@ except Exception as e:
 
 # Arduino bağlantısı
 try:
-    arduino = serial.Serial(port='COM3', baudrate=9600, timeout=0.1)
+    arduino = serial.Serial(port='/dev/ttyUSB0', baudrate=9600, timeout=0.1)
     time.sleep(2)
     arduino = None
 except Exception as e:
