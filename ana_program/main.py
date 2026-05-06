@@ -65,7 +65,11 @@ def get_centroid(mask):
 
 # --- 3. ANA DÖNGÜ (ALGI-KARAR-EYLEM) ---
 # Bilgisayarın kamerasını başlat
-cap = cv2.VideoCapture(0)
+#!!!!!!!! cap = cv2.VideoCapture(0)
+
+# İP WEBCAM
+ip_kamera_url = "http://192.168.1.55:8080/video"
+cap = cv2.VideoCapture(ip_kamera_url)
 
 while cap.isOpened():
     ret, frame = cap.read()
