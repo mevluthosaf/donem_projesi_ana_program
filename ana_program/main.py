@@ -5,11 +5,10 @@ import serial
 import time
 import segmentation_models_pytorch as smp
 
-# --- 1. MODEL VE DONANIM HAZIRLIĞI ---
 CIHAZ = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Kullanılan donanım: {CIHAZ}")
 
-# Senin mimarini kuruyor
+# u-net eğitimde kullanılan mimari buraya bu şekilde yazılıyormuş
 try:
     model = smp.Unet(encoder_name="resnet18", encoder_weights=None, in_channels=3, classes=1)
     # Senin en iyi ağırlığını yüklüyor
@@ -21,14 +20,14 @@ except Exception as e:
     print(f"Model yüklenirken hata oluştu: {e}")
     exit()
 
-# Arduino bağlantısı
+# arduino bağlantısı
 try:
-    print("Arduino'ya bağlanmaya çalışılıyor...")
+    print("Arduino'ya bağlanılıyor...")
     arduino = serial.Serial(port='/dev/ttyUSB0', baudrate=9600, timeout=0.1)
-    time.sleep(2)  # Arduino'nun resetlenmesi için gerekli süre
-    print("HARİKA! Arduino bağlantısı başarıyla kuruldu!")
+    time.sleep(2)  # arduino'nun resetlenmesi için gerekli süre
+    print("Arduino bağlantısı kuruldu!")
 except Exception as e:
-    print(f"KRİTİK HATA! Arduino bağlantı hatası: {e}")
+    print(f"Arduino bağlantı hatası: {e}")
     arduino = None
 
 TOLERANCE = 50
@@ -36,7 +35,7 @@ TOLERANCE = 50
 
 # --- 2. YARDIMCI FONKSİYONLAR ---
 def tahmin_et(kamera_karesi):
-    # Ön İşleme (Senin eğitimde yaptığının aynısı)
+    # ön İşleme (eğitim sırasındakine benzer senaryo yaptığının aynısı)
     resim = cv2.cvtColor(kamera_karesi, cv2.COLOR_BGR2RGB)
     resim = cv2.resize(resim, (640, 640))
     resim = resim.transpose(2, 0, 1).astype('float32') / 255.0
@@ -44,7 +43,7 @@ def tahmin_et(kamera_karesi):
     # PyTorch tensörüne çevirip batch boyutu ekleme (1, 3, 640, 640)
     tensor = torch.from_numpy(resim).unsqueeze(0).to(CIHAZ)
 
-    # Modeli Çalıştırma (Forward işlemi)
+    # modeli Çalıştırma (Forward işlemi)
     with torch.no_grad():  # Gradyan hesaplamayı kapatır, aracı hızlandırır
         cikti = model(tensor)
         # Çıktıyı 0 ile 1 arasına sıkıştırıp 0.5 eşik değeri uygula
@@ -64,7 +63,7 @@ def get_centroid(mask):
     return None
 
 
-# --- 3. ANA DÖNGÜ (ALGI-KARAR-EYLEM) ---
+# --- 3. ANA DÖNGÜ  ---
 # Bilgisayarın kamerasını başlat
 #!!!!!!!! cap = cv2.VideoCapture(0)
 
