@@ -70,6 +70,7 @@ def get_centroid(mask):
 # İP WEBCAM
 ip_kamera_url = "http://10.10.5.20:8080/video"
 cap = cv2.VideoCapture(ip_kamera_url)
+cap.set(cv2.CAP_PROP_BUFFERSIZE, 1) # EKLENDİ: Görüntü biriktirmeyi kapatır, gecikmeyi önler
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -114,6 +115,10 @@ while cap.isOpened():
     # Komutu Arduino'ya gönder
     if arduino:
         arduino.write(cmd.encode())
+        # Arka planda ne gittiğini görmek için terminale yazdıralım:
+        print(f"Komut Gitti: {cmd}")
+    else:
+        print("DİKKAT: Arduino bağlantısı yok, komut gönderilemedi!")
 
     # Ekrana sonuçları bas
     cv2.imshow('Kamera', frame)
