@@ -5,25 +5,25 @@ import serial
 import time
 import segmentation_models_pytorch as smp
 
+# Donanım ayarı
 CIHAZ = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Kullanılan donanım: {CIHAZ}")
 
-# U-Net modeli yükleme
+# Model yükleme
 try:
     model = smp.Unet(encoder_name="resnet18", encoder_weights=None, in_channels=3, classes=1)
     model.load_state_dict(torch.load("unet_model.pth", map_location=CIHAZ))
     model.to(CIHAZ)
-    model.eval()  # Tahmin modu
+    model.eval()
     print("Model başarıyla yüklendi!")
 except Exception as e:
-    print(f"Model yüklenirken hata oluştu: {e}")
+    print(f"Model yükleme hatası: {e}")
     exit()
 
 # Arduino bağlantısı
 try:
-    print("Arduino'ya bağlanılıyor...")
     arduino = serial.Serial(port='/dev/ttyUSB0', baudrate=9600, timeout=0.1)
-    time.sleep(2)  # Resetlenme süresi
+    time.sleep(2)
     print("Arduino bağlantısı kuruldu!")
 except Exception as e:
     print(f"Arduino bağlantı hatası: {e}")
@@ -32,20 +32,15 @@ except Exception as e:
 TOLERANCE = 50
 
 
-# --- 2. YARDIMCI FONKSİYONLAR ---
 def tahmin_et(kamera_karesi):
     resim = cv2.cvtColor(kamera_karesi, cv2.COLOR_BGR2RGB)
     resim = cv2.resize(resim, (640, 640))
     resim = resim.transpose(2, 0, 1).astype('float32') / 255.0
-
     tensor = torch.from_numpy(resim).unsqueeze(0).to(CIHAZ)
-
     with torch.no_grad():
         cikti = model(tensor)
         maske = torch.sigmoid(cikti) > 0.5
-
-    maske_numpy = maske.squeeze().cpu().numpy().astype(np.uint8) * 255
-    return maske_numpy
+    return maske.squeeze().cpu().numpy().astype(np.uint8) * 255
 
 
 def get_centroid(mask):
@@ -55,69 +50,56 @@ def get_centroid(mask):
     return None
 
 
-# --- 3. ANA DÖNGÜ ---
-# USB WEBCAM BAĞLANTISI
-# Raspberry Pi üzerindeki ilk USB kamera genelde 0 indeksini alır. Eğer harici bir kamera daha varsa 1 yapabilirsin.
+# USB Kamera Başlatma
 cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_BUFFERSIZE, 1) # Görüntü biriktirmeyi kapatır
+cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-# Performans optimizasyonu için zaman değişkenleri
-islem_araligi = 0.5  # Saniyede 2 kare işlemek için (1 / 2 = 0.5 saniye)
+islem_araligi = 0.5  # 2 FPS için 0.5 saniye bekleme
 son_islem_zamani = time.time()
 
-while cap.isOpened():
-    # Kameradan her döngüde kareyi oku ki buffer dolsun ve görüntü gecikmesin (lag olmasın)
-    ret, frame = cap.read()
-    if not ret:
-        break
+try:
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret: break
 
-    su_an = time.time()
+        su_an = time.time()
 
-    # Eğer son işlemden bu yana 0.5 saniye geçtiyse değerlendirmeyi yap
-    if su_an - son_islem_zamani >= islem_araligi:
-        son_islem_zamani = su_an
+        # Performans: Saniyede sadece 2 kareyi derin öğrenme modeline sok
+        if su_an - son_islem_zamani >= islem_araligi:
+            son_islem_zamani = su_an
 
-        original_height, original_width = frame.shape[:2]
+            orig_h, orig_w = frame.shape[:2]
+            mask_640 = tahmin_et(frame)
+            mask_resized = cv2.resize(mask_640, (orig_w, orig_h), interpolation=cv2.INTER_NEAREST)
 
-        # Model değerlendirmesi (Yalnızca saniyede 2 kez çalışacak, işlemciyi rahatlatacak)
-        mask_640 = tahmin_et(frame)
-        mask_resized = cv2.resize(mask_640, (original_width, original_height), interpolation=cv2.INTER_NEAREST)
+            road_center_x = get_centroid(mask_resized)
+            img_center_x = orig_w // 2
 
-        road_center_x = get_centroid(mask_resized)
-        img_center_x = original_width // 2
+            if road_center_x is not None:
+                error = road_center_x - img_center_x
+                cmd = 'S' if abs(error) <= TOLERANCE else ('R' if error > TOLERANCE else 'L')
 
-        if road_center_x is not None:
-            error = road_center_x - img_center_x
-
-            if abs(error) <= TOLERANCE:
-                cmd = 'S'
-            elif error > TOLERANCE:
-                cmd = 'R'
+                # Ekrana çizim işlemleri
+                cv2.circle(frame, (road_center_x, orig_h // 2), 10, (0, 0, 255), -1)
+                cv2.circle(frame, (img_center_x, orig_h // 2), 10, (255, 0, 0), -1)
+                cv2.putText(frame, f"Komut: {cmd}", (30, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             else:
-                cmd = 'L'
+                cmd = 'B'
+                cv2.putText(frame, "Yol Yok!", (30, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-            cv2.circle(frame, (road_center_x, original_height // 2), 10, (0, 0, 255), -1)
-            cv2.circle(frame, (img_center_x, original_height // 2), 10, (255, 0, 0), -1)
-            cv2.putText(frame, f"Hata: {error} - Komut: {cmd}", (30, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            if arduino:
+                arduino.write(cmd.encode())
 
-        else:
-            cmd = 'B'
-            cv2.putText(frame, "Yol Bulunamadi! Komut: B", (30, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            # Fiziksel ekranda görüntüle
+            cv2.imshow('Otonom Arac Gorusu', frame)
+            cv2.imshow('Yol Maskesi', mask_resized)
 
-        # Arduino'ya saniyede 2 kez komut gönderimi
-        if arduino:
-            arduino.write(cmd.encode())
-            print(f"Komut Gitti: {cmd}")
-        else:
-            print("DİKKAT: Arduino bağlantısı yok, komut gönderilemedi!")
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-        # Görüntü pencerelerini de sadece kare işlendiğinde güncelleyerek ekstra performanstan tasarruf ediyoruz
-        cv2.imshow('Kamera', frame)
-        cv2.imshow('U-Net Maske', mask_resized)
-
-    # Çıkış kontrolü her döngüde çalışır, 'q' tuşu anında tepki verir
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-cap.release()
-cv2.destroyAllWindows()
+except KeyboardInterrupt:
+    print("Durduruldu.")
+finally:
+    cap.release()
+    cv2.destroyAllWindows()
+    if arduino: arduino.close()
