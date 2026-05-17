@@ -1,3 +1,8 @@
+import os
+
+# OpenCV'nin gereksiz terminal uyarılarını (GStreamer vb.) tamamen susturur
+os.environ["OPENCV_LOG_LEVEL"] = "FATAL"
+
 import cv2
 import torch
 import numpy as np
@@ -7,7 +12,9 @@ import segmentation_models_pytorch as smp
 
 # Donanım ayarı
 CIHAZ = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Kullanılan donanım: {CIHAZ}")
+print("=" * 40)
+print(f"[*] Sistem Başlatılıyor...")
+print(f"[*] Kullanılan Donanım: {str(CIHAZ).upper()}")
 
 # Model yükleme
 try:
@@ -15,18 +22,18 @@ try:
     model.load_state_dict(torch.load("unet_model.pth", map_location=CIHAZ))
     model.to(CIHAZ)
     model.eval()
-    print("Model başarıyla yüklendi!")
+    print("[+] U-Net Modeli başarıyla yüklendi.")
 except Exception as e:
-    print(f"Model yükleme hatası: {e}")
+    print(f"[-] Model yükleme hatası: {e}")
     exit()
 
 # Arduino bağlantısı
 try:
     arduino = serial.Serial(port='/dev/ttyUSB0', baudrate=9600, timeout=0.1)
     time.sleep(2)
-    print("Arduino bağlantısı kuruldu!")
+    print("[+] Arduino bağlantısı kuruldu (/dev/ttyUSB0).")
 except Exception as e:
-    print(f"Arduino bağlantı hatası: {e}")
+    print(f"[-] Arduino bağlantı hatası: {e}")
     arduino = None
 
 TOLERANCE = 50
@@ -50,23 +57,40 @@ def get_centroid(mask):
     return None
 
 
-# USB Kamera Başlatma
-cap = cv2.VideoCapture(0)
+# USB Kamera Başlatma (GStreamer hatalarını önlemek için CAP_V4L2 kullanıldı)
+print("[*] Kamera aranıyor...")
+cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+if not cap.isOpened():
+    print("[-] HATA: USB Kamera bulunamadı veya yetki yok!")
+    exit()
+else:
+    print("[+] Kamera bağlantısı aktif.")
 
 islem_araligi = 0.5  # 2 FPS için 0.5 saniye bekleme
 son_islem_zamani = time.time()
+islem_sayaci = 0
+
+print("=" * 40)
+print(">>> OTONOM SÜRÜŞ BAŞLADI <<<")
+print(">>> İzleme Modu Aktif. Durdurmak için: Ctrl + C <<<")
+print("-" * 40)
 
 try:
     while cap.isOpened():
         ret, frame = cap.read()
-        if not ret: break
+        if not ret:
+            print("[-] Kameradan kare okunamadı!")
+            break
 
         su_an = time.time()
 
         # Performans: Saniyede sadece 2 kareyi derin öğrenme modeline sok
         if su_an - son_islem_zamani >= islem_araligi:
+            gecen_sure = su_an - son_islem_zamani
             son_islem_zamani = su_an
+            islem_sayaci += 1
 
             orig_h, orig_w = frame.shape[:2]
             mask_640 = tahmin_et(frame)
@@ -77,29 +101,36 @@ try:
 
             if road_center_x is not None:
                 error = road_center_x - img_center_x
-                cmd = 'S' if abs(error) <= TOLERANCE else ('R' if error > TOLERANCE else 'L')
-
-                # Ekrana çizim işlemleri
-                cv2.circle(frame, (road_center_x, orig_h // 2), 10, (0, 0, 255), -1)
-                cv2.circle(frame, (img_center_x, orig_h // 2), 10, (255, 0, 0), -1)
-                cv2.putText(frame, f"Komut: {cmd}", (30, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                if abs(error) <= TOLERANCE:
+                    cmd = 'S'
+                    durum_metni = "DUZ "
+                elif error > TOLERANCE:
+                    cmd = 'R'
+                    durum_metni = "SAG "
+                else:
+                    cmd = 'L'
+                    durum_metni = "SOL "
+                hata_miktari = f"{error:>4}"  # Sağa dayalı formatlama
             else:
                 cmd = 'B'
-                cv2.putText(frame, "Yol Yok!", (30, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                durum_metni = "DUR "
+                hata_miktari = "YOK "
 
+            # Komut gönderme
             if arduino:
                 arduino.write(cmd.encode())
-
-            # Fiziksel ekranda görüntüle
-            cv2.imshow('Otonom Arac Gorusu', frame)
-            cv2.imshow('Yol Maskesi', mask_resized)
-
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+                print(f"[# {islem_sayaci:04d}] Hedef: {durum_metni} | Hata Payı: {hata_miktari} | Gönderilen: {cmd}")
+            else:
+                print(f"[# {islem_sayaci:04d}] Hedef: {durum_metni} | Hata Payı: {hata_miktari} | (ARDUINO YOK)")
 
 except KeyboardInterrupt:
-    print("Durduruldu.")
+    print("\n" + "=" * 40)
+    print("[-] Kullanıcı komutuyla (Ctrl+C) sistem durduruluyor...")
 finally:
     cap.release()
-    cv2.destroyAllWindows()
-    if arduino: arduino.close()
+    if arduino:
+        # Program kapanırken aracı güvene almak için durma komutu
+        arduino.write('B'.encode())
+        arduino.close()
+    print("[*] Donanım bağlantıları güvenle kapatıldı. İyi çalışmalar!")
+    print("=" * 40)
