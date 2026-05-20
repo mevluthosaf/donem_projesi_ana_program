@@ -19,7 +19,7 @@ print(f"[*] Kullanılan Donanım: {str(CIHAZ).upper()}")
 # Model yükleme
 try:
     model = smp.Unet(encoder_name="resnet18", encoder_weights=None, in_channels=3, classes=1)
-    model.load_state_dict(torch.load("unet_model.pth", map_location=CIHAZ))
+    model.load_state_dict(torch.load("unet_fold1.pth", map_location=CIHAZ))
     model.to(CIHAZ)
     model.eval()
     print("[+] U-Net Modeli başarıyla yüklendi.")
