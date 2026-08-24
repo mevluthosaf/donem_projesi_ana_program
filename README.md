@@ -93,8 +93,8 @@ System tasks are distributed across two processing units to ensure high compute 
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/mevluthosaf/donem_projesi_ana_program.git](https://github.com/mevluthosaf/donem_projesi_ana_program.git)
-cd donem_projesi_ana_program
+git clone [https://github.com/mevluthosaf/autonomous-cargo-vehicle.git](https://github.com/mevluthosaf/autonomous-cargo-vehicle.git)
+cd autonomous-cargo-vehicle
 ```
 
 ### 2. Install Python Dependencies
