@@ -4,7 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="32eecabe-a863-47f2-8f39-184c6accc22e" name="Changes" comment="" />
+    <list default="true" id="32eecabe-a863-47f2-8f39-184c6accc22e" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/assets/field_test.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/assets/flow_diagram.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/assets/segmentation_live.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/assets/vehicle_front.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/assets/vehicle_side.png" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -74,6 +80,7 @@
       <workItem from="1781735119694" duration="42000" />
       <workItem from="1787561300531" duration="86000" />
       <workItem from="1787561403536" duration="702000" />
+      <workItem from="1787562637279" duration="306000" />
     </task>
     <servers />
   </component>
