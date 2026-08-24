@@ -111,6 +111,18 @@ python src/main.py
 
 ---
 
+## 📸 Canlı Test ve Çıktılar
+
+| Segmentasyon Çıktısı (U-Net) | Sahada Otonom Sürüş Testi |
+| :---: | :---: |
+| ![Segmentasyon Çıktısı](assets/segmentation_live.png) | ![Saha Testi](assets/field_test.png) |
+
+| Prototip Önden Görünüm | Prototip Yandan Görünüm |
+| :---: | :---: |
+| ![Ön Görünüm](assets/vehicle_front.png) | ![Yan Görünüm](assets/vehicle_side.png) |
+
+---
+
 ## 👥 Proje Ekibi ve Danışman
 
 * **Geliştiriciler:** Zeliha Önel & Mevlüt Hoşaf
